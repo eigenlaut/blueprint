@@ -1,0 +1,222 @@
+blueprint:
+  name: Advanced Lighting Control with Bedtime, On-Air, and Lux Adaptive Modes
+  description: >
+    Control a light with different behaviors based on Bedtime Mode, On-Air Mode, and Normal Mode with adaptive lux settings. Customize On-Air pulsing patterns, bedtime schedules, and more.
+  domain: automation
+  input:
+    bedtime_start:
+      name: Bedtime Start Time
+      selector:
+        time:
+    bedtime_end:
+      name: Bedtime End Time
+      selector:
+        time:
+    manual_bedtime_duration:
+      name: Manual Bedtime Duration (minutes)
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: minutes
+    bedtime_brightness:
+      name: Bedtime Mode Brightness
+      selector:
+        number:
+          min: 1
+          max: 255
+          unit_of_measurement: brightness
+    bedtime_color:
+      name: Bedtime Mode Color
+      selector:
+        color_rgb:
+    on_air_color:
+      name: On-Air Mode Color
+      selector:
+        color_rgb:
+    on_air_pulse_pattern:
+      name: On-Air Pulse Pattern
+      selector:
+        select:
+          options:
+            - "Sine Wave"
+            - "Linear"
+            - "Exponential"
+            - "Sawtooth"
+            - "Triangle"
+            - "Ease In-Out"
+    enable_pulse:
+      name: Enable Pulse Effect for On-Air Mode
+      selector:
+        boolean:
+    pulse_min_brightness:
+      name: Pulse Minimum Brightness
+      selector:
+        number:
+          min: 1
+          max: 255
+          unit_of_measurement: brightness
+    pulse_length:
+      name: Pulse Length (seconds)
+      selector:
+        number:
+          min: 1
+          max: 30
+          unit_of_measurement: seconds
+    lux_threshold:
+      name: Lux Threshold for Normal Mode
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: lux
+    adaptive_brightness:
+      name: Enable Adaptive Brightness Based on Lux
+      selector:
+        boolean:
+    min_brightness:
+      name: Minimum Brightness at Lux Threshold
+      selector:
+        number:
+          min: 1
+          max: 255
+          unit_of_measurement: brightness
+    max_brightness:
+      name: Maximum Brightness for Darkest Conditions
+      selector:
+        number:
+          min: 1
+          max: 255
+          unit_of_measurement: brightness
+    motion_inactive_delay:
+      name: Motion Inactive Delay (seconds)
+      selector:
+        number:
+          min: 1
+          max: 300
+          unit_of_measurement: seconds
+    dimming_time:
+      name: Dimming Time (seconds)
+      selector:
+        number:
+          min: 1
+          max: 20
+          unit_of_measurement: seconds
+    vacation_mode:
+      name: Enable Vacation Mode
+      selector:
+        boolean:
+
+variables:
+  bedtime_start: !input bedtime_start
+  bedtime_end: !input bedtime_end
+  manual_bedtime_duration: !input manual_bedtime_duration
+  bedtime_brightness: !input bedtime_brightness
+  bedtime_color: !input bedtime_color
+  on_air_color: !input on_air_color
+  on_air_pulse_pattern: !input on_air_pulse_pattern
+  enable_pulse: !input enable_pulse
+  pulse_min_brightness: !input pulse_min_brightness
+  pulse_length: !input pulse_length
+  lux_threshold: !input lux_threshold
+  adaptive_brightness: !input adaptive_brightness
+  min_brightness: !input min_brightness
+  max_brightness: !input max_brightness
+  motion_inactive_delay: !input motion_inactive_delay
+  dimming_time: !input dimming_time
+  vacation_mode: !input vacation_mode
+
+trigger:
+  - platform: state
+    entity_id: binary_sensor.motion_sensor
+
+condition: "{{ not vacation_mode }}"
+
+action:
+  - choose:
+      - conditions:
+          - "{{ is_state('input_boolean.vacation_mode', 'on') }}"
+        sequence:
+          - service: light.turn_off
+            target:
+              entity_id: light.room_light
+
+      - conditions:
+          - "{{ is_state('input_select.light_mode', 'On-Air') }}"
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: light.room_light
+            data:
+              color_name: "{{ on_air_color }}"
+          - choose:
+              - conditions:
+                  - "{{ enable_pulse }}"
+                sequence:
+                  - repeat:
+                      count: "{{ pulse_length }}"
+                      sequence:
+                        - service: light.turn_on
+                          target:
+                            entity_id: light.room_light
+                          data_template:
+                            brightness: >
+                              {% if on_air_pulse_pattern == "Sine Wave" %}
+                                {{ 127 + 127 * sin(now().timestamp() | float / pulse_length) }}
+                              {% elif on_air_pulse_pattern == "Linear" %}
+                                {{ (now().timestamp() | float % pulse_length) * 255 / pulse_length }}
+                              {% elif on_air_pulse_pattern == "Exponential" %}
+                                {{ 255 * (1 - exp(-now().timestamp() / pulse_length)) }}
+                              {% elif on_air_pulse_pattern == "Sawtooth" %}
+                                {{ (now().timestamp() | float % pulse_length) * 255 / pulse_length }}
+                              {% elif on_air_pulse_pattern == "Triangle" %}
+                                {{ abs((now().timestamp() | float % pulse_length) * 2 - 255) }}
+                              {% elif on_air_pulse_pattern == "Ease In-Out" %}
+                                {{ (sin((now().timestamp() | float / pulse_length) * pi) + 1) * 127 }}
+                              {% else %}
+                                255
+                              {% endif %}
+                        - delay:
+                            seconds: 1
+          - service: light.turn_off
+            target:
+              entity_id: light.room_light
+
+      - conditions:
+          - "{{ is_state('input_select.light_mode', 'Bedtime') }}"
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: light.room_light
+            data:
+              brightness: "{{ bedtime_brightness }}"
+              rgb_color: "{{ bedtime_color }}"
+
+      - conditions:
+          - "{{ is_state('input_select.light_mode', 'Normal') }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - "{{ lux < lux_threshold }}"
+                sequence:
+                  - service: light.turn_on
+                    target:
+                      entity_id: light.room_light
+                    data_template:
+                      brightness: >
+                        {% if adaptive_brightness %}
+                          {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold - lux) / lux_threshold) }}
+                        {% else %}
+                          255
+                        {% endif %}
+          - delay: "{{ motion_inactive_delay }}"
+          - service: light.turn_on
+            target:
+              entity_id: light.room_light
+            data:
+              brightness: 1
+              transition: "{{ dimming_time }}"
+          - delay: "{{ dimming_time }}"
+          - service: light.turn_off
+            target:
+              entity_id: light.room_light
