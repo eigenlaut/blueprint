@@ -163,6 +163,16 @@ condition:
     value_template: "{{ not is_state(vacation_mode, 'on') }}"
 
 action:
+  # Debugging to check the states of entities when the automation runs
+  - service: persistent_notification.create
+    data:
+      message: >
+        The current light mode is: {{ states('input_select.light_mode') }},
+        On-Air Mode: {{ states(on_air_entity) }},
+        Vacation Mode: {{ states(vacation_mode) }},
+        Lux Sensor: {{ states(lux_sensor) }} lux
+      title: "Debug Info"
+
   - choose:
       - conditions:
           - "{{ is_state(on_air_entity, 'on') }}"
