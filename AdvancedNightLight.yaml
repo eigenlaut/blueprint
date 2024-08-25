@@ -163,16 +163,6 @@ condition:
     value_template: "{{ not is_state(vacation_mode, 'on') }}"
 
 action:
-  # Debugging to check the states of entities when the automation runs
-  - service: persistent_notification.create
-    data:
-      message: >
-        The current light mode is: {{ states('input_select.light_mode') }},
-        On-Air Mode: {{ states(on_air_entity) }},
-        Vacation Mode: {{ states(vacation_mode) }},
-        Lux Sensor: {{ states(lux_sensor) }} lux
-      title: "Debug Info"
-
   - choose:
       - conditions:
           - "{{ is_state(on_air_entity, 'on') }}"
@@ -189,33 +179,20 @@ action:
             target:
               entity_id: !input light_entity
 
-      - conditions:
-          - "{{ is_state('input_select.light_mode', 'Bedtime') }}"
-        sequence:
-          - service: light.turn_on
-            target:
-              entity_id: !input light_entity
-            data:
-              brightness: "{{ bedtime_brightness }}"
-              rgb_color: "{{ bedtime_color }}"
-
-      - conditions:
-          - "{{ is_state('input_select.light_mode', 'Normal') }}"
-        sequence:
-          - choose:
-              - conditions:
-                  - "{{ states(lux_sensor) | int < lux_threshold }}"
-                sequence:
-                  - service: light.turn_on
-                    target:
-                      entity_id: !input light_entity
-                    data_template:
-                      brightness: >
-                        {% if adaptive_brightness %}
-                          {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold - states(lux_sensor) | int) / lux_threshold) }}
-                        {% else %}
-                          255
-                        {% endif %}
+      - choose:
+          - conditions:
+              - "{{ states(lux_sensor) | int < lux_threshold }}"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: !input light_entity
+                data_template:
+                  brightness: >
+                    {% if adaptive_brightness %}
+                      {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold - states(lux_sensor) | int) / lux_threshold) }}
+                    {% else %}
+                      255
+                    {% endif %}
 
   - delay: "{{ motion_inactive_delay }}"
   - service: light.turn_on
