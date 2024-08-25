@@ -184,7 +184,7 @@ trigger:
   - platform: state
     entity_id: !input occupancy_sensor
 
-condition: "{{ not vacation_mode }}"
+condition: "{{ not is_state(vacation_mode, 'on') }}"
 
 action:
   - choose:
