@@ -167,6 +167,10 @@ action:
       - conditions:
           - "{{ is_state(on_air_entity, 'on') }}"
         sequence:
+          - service: persistent_notification.create
+            data:
+              message: "On-Air Mode Condition Met"
+              title: "Debug Info"
           - service: light.turn_on
             target:
               entity_id: !input light_entity
@@ -176,6 +180,10 @@ action:
       - conditions:
           - "{{ is_state(vacation_mode, 'on') }}"
         sequence:
+          - service: persistent_notification.create
+            data:
+              message: "Vacation Mode Condition Met"
+              title: "Debug Info"
           - service: light.turn_off
             target:
               entity_id: !input light_entity
@@ -183,6 +191,10 @@ action:
       - conditions:
           - "{{ states(lux_sensor) | int < lux_threshold }}"
         sequence:
+          - service: persistent_notification.create
+            data:
+              message: "Lux Sensor Condition Met"
+              title: "Debug Info"
           - service: light.turn_on
             target:
               entity_id: !input light_entity
