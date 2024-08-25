@@ -251,9 +251,8 @@ action:
         sequence:
           - choose:
               - conditions:
-                  - condition: numeric_state
-                    entity_id: !input lux_sensor
-                    below: "{{ lux_threshold | float }}"
+                  - condition: template
+                    value_template: "{{ states(lux_sensor) | float < lux_threshold | float }}"
                 sequence:
                   - service: light.turn_on
                     target:
