@@ -179,20 +179,19 @@ action:
             target:
               entity_id: !input light_entity
 
-      - choose:
-          - conditions:
-              - "{{ states(lux_sensor) | int < lux_threshold }}"
-            sequence:
-              - service: light.turn_on
-                target:
-                  entity_id: !input light_entity
-                data_template:
-                  brightness: >
-                    {% if adaptive_brightness %}
-                      {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold - states(lux_sensor) | int) / lux_threshold) }}
-                    {% else %}
-                      255
-                    {% endif %}
+      - conditions:
+          - "{{ states(lux_sensor) | int < lux_threshold }}"
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data_template:
+              brightness: >
+                {% if adaptive_brightness %}
+                  {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold - states(lux_sensor) | int) / lux_threshold) }}
+                {% else %}
+                  255
+                {% endif %}
 
   - delay: "{{ motion_inactive_delay }}"
   - service: light.turn_on
