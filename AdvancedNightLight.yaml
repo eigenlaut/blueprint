@@ -253,7 +253,7 @@ action:
               - conditions:
                   - condition: numeric_state
                     entity_id: !input lux_sensor
-                    below: "{{ lux_threshold }}"
+                    below: "{{ lux_threshold | float }}"
                 sequence:
                   - service: light.turn_on
                     target:
@@ -261,7 +261,7 @@ action:
                     data_template:
                       brightness: >
                         {% if adaptive_brightness %}
-                          {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold - states(lux_sensor) | int) / lux_threshold) }}
+                          {{ min_brightness + ((max_brightness - min_brightness) * (lux_threshold | float - states(lux_sensor) | float) / lux_threshold | float) }}
                         {% else %}
                           255
                         {% endif %}
